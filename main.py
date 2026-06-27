@@ -1,4 +1,4 @@
-from src.tools.tools import scrape_url
+from src.pipeline.pipeline import run_research_pipeline
 
-result = scrape_url.invoke(" https://www.artificialintelligence-news.com")
-print(result)
+topic="what is tcs revenue in 2026"
+run_research_pipeline(topic=topic)
