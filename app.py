@@ -1,5 +1,6 @@
 import streamlit as st
 import time
+import re
 from src.agents.agents import build_search_agent, build_reader_agent, writer_chain, critic_chain
 
 # ── Page config ──────────────────────────────────────────────────────────────
@@ -15,7 +16,6 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
 
-/* ── Reset & base ── */
 html, body, [class*="css"] {
     font-family: 'DM Sans', sans-serif;
     color: #edf3ff;
@@ -29,11 +29,9 @@ html, body, [class*="css"] {
         linear-gradient(180deg, #07111f 0%, #0a1729 100%);
 }
 
-/* ── Hide default streamlit chrome ── */
 #MainMenu, footer, header { visibility: hidden; }
 .block-container { padding: 2rem 3rem 4rem; max-width: 1200px; }
 
-/* ── Hero header ── */
 .hero {
     text-align: center;
     padding: 3.5rem 0 2.5rem;
@@ -72,14 +70,12 @@ html, body, [class*="css"] {
     line-height: 1.65;
 }
 
-/* ── Divider ── */
 .divider {
     height: 1px;
     background: linear-gradient(90deg, transparent, rgba(56,189,248,0.35), transparent);
     margin: 2rem 0;
 }
 
-/* ── Input card ── */
 .input-card {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(56,189,248,0.18);
@@ -90,7 +86,6 @@ html, body, [class*="css"] {
     box-shadow: 0 10px 40px rgba(0,0,0,0.28);
 }
 
-/* ── Streamlit input overrides ── */
 .stTextInput > div > div > input,
 .stTextInput > div > div > input:focus,
 [data-baseweb="input"] input,
@@ -129,7 +124,6 @@ html, body, [class*="css"] {
     -webkit-text-fill-color: #38bdf8 !important;
 }
 
-/* ── Fix all markdown output text ── */
 [data-testid="stMarkdownContainer"] p,
 [data-testid="stMarkdownContainer"] li,
 [data-testid="stMarkdownContainer"] ol,
@@ -144,7 +138,6 @@ html, body, [class*="css"] {
     -webkit-text-fill-color: #e2eafc !important;
 }
 
-/* ── Button ── */
 .stButton > button {
     background: linear-gradient(135deg, #38bdf8 0%, #8b5cf6 100%) !important;
     color: white !important;
@@ -165,11 +158,8 @@ html, body, [class*="css"] {
     transform: translateY(-2px) scale(1.01) !important;
     box-shadow: 0 12px 35px rgba(56,189,248,0.32) !important;
 }
-.stButton > button:active {
-    transform: translateY(0) !important;
-}
+.stButton > button:active { transform: translateY(0) !important; }
 
-/* ── Pipeline step cards ── */
 .step-card {
     background: rgba(255,255,255,0.035);
     border: 1px solid rgba(255,255,255,0.08);
@@ -181,18 +171,9 @@ html, body, [class*="css"] {
     transition: all 0.25s ease;
     backdrop-filter: blur(10px);
 }
-.step-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(56,189,248,0.18);
-}
-.step-card.active {
-    border-color: rgba(56,189,248,0.45);
-    background: rgba(56,189,248,0.06);
-}
-.step-card.done {
-    border-color: rgba(34,197,94,0.28);
-    background: rgba(34,197,94,0.05);
-}
+.step-card:hover { transform: translateY(-2px); border-color: rgba(56,189,248,0.18); }
+.step-card.active { border-color: rgba(56,189,248,0.45); background: rgba(56,189,248,0.06); }
+.step-card.done   { border-color: rgba(34,197,94,0.28);  background: rgba(34,197,94,0.05);  }
 .step-card::before {
     content: '';
     position: absolute;
@@ -205,12 +186,7 @@ html, body, [class*="css"] {
 .step-card.active::before { background: #38bdf8; }
 .step-card.done::before   { background: #22c55e; }
 
-.step-header {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    margin-bottom: 0.3rem;
-}
+.step-header { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.3rem; }
 .step-num {
     font-family: 'DM Mono', monospace;
     font-size: 0.68rem;
@@ -219,23 +195,12 @@ html, body, [class*="css"] {
     color: #38bdf8;
     opacity: 0.85;
 }
-.step-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 1rem;
-    font-weight: 700;
-    color: #f8fbff;
-}
-.step-status {
-    margin-left: auto;
-    font-family: 'DM Mono', monospace;
-    font-size: 0.68rem;
-    letter-spacing: 0.1em;
-}
-.status-waiting  { color: #64748b; }
-.status-running  { color: #38bdf8; }
-.status-done     { color: #22c55e; }
+.step-title { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; color: #f8fbff; }
+.step-status { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 0.68rem; letter-spacing: 0.1em; }
+.status-waiting { color: #64748b; }
+.status-running { color: #38bdf8; }
+.status-done    { color: #22c55e; }
 
-/* ── Result panels ── */
 .result-panel {
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.08);
@@ -256,16 +221,7 @@ html, body, [class*="css"] {
     padding-bottom: 0.7rem;
     border-bottom: 1px solid rgba(56,189,248,0.15);
 }
-.result-content {
-    font-size: 0.92rem;
-    line-height: 1.8;
-    color: #e2eafc;
-    -webkit-text-fill-color: #e2eafc;
-    white-space: pre-wrap;
-    font-family: 'DM Sans', sans-serif;
-}
 
-/* ── Report & feedback panels ── */
 .report-panel {
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(56,189,248,0.2);
@@ -301,10 +257,8 @@ html, body, [class*="css"] {
     border-bottom: 1px solid rgba(34,197,94,0.15);
 }
 
-/* ── Progress text ── */
 .stSpinner > div { color: #38bdf8 !important; }
 
-/* ── Expander ── */
 details {
     background: rgba(255,255,255,0.02);
     border-radius: 14px;
@@ -320,7 +274,6 @@ details summary {
     cursor: pointer;
 }
 
-/* ── Section heading ── */
 .section-heading {
     font-family: 'Syne', sans-serif;
     font-size: 1.35rem;
@@ -329,7 +282,6 @@ details summary {
     margin: 2rem 0 1rem;
 }
 
-/* ── Toast-style notice ── */
 .notice {
     font-family: 'DM Mono', monospace;
     font-size: 0.72rem;
@@ -342,17 +294,61 @@ details summary {
 """, unsafe_allow_html=True)
 
 
-# ── Helper: render a step card ────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+# Domains that cannot be scraped (JS-heavy, auth-walled, or block bots)
+UNSCRAPPABLE_DOMAINS = {
+    "youtube.com", "youtu.be",
+    "twitter.com", "x.com",
+    "instagram.com", "facebook.com",
+    "linkedin.com", "tiktok.com",
+    "reddit.com",                   # Usually works but returns mobile redirect; skip
+    "researchgate.net",             # Auth wall
+    "academia.edu",                 # Auth wall
+}
+
+def is_scrappable(url: str) -> bool:
+    """Return True only for URLs worth handing to the scraper."""
+    url_lower = url.lower()
+    # Skip non-HTTP
+    if not url_lower.startswith("http"):
+        return False
+    # Skip PDFs (often need special handling)
+    if url_lower.endswith(".pdf"):
+        return False
+    # Skip known bad domains
+    for domain in UNSCRAPPABLE_DOMAINS:
+        if domain in url_lower:
+            return False
+    return True
+
+def safe_html(text: str) -> str:
+    """Escape < and > so raw AI output doesn't break innerHTML panels."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+def extract_scrappable_urls(text: str, limit: int = 5) -> list[str]:
+    """Pull URLs from text and filter to only scrappable ones."""
+    all_urls = re.findall(r'https?://[^\s\n\)\]\"\']+', text)
+    seen = set()
+    good = []
+    for u in all_urls:
+        u = u.rstrip(".,;)")   # strip trailing punctuation
+        if u not in seen and is_scrappable(u):
+            seen.add(u)
+            good.append(u)
+        if len(good) >= limit:
+            break
+    return good
+
+
 def step_card(num: str, title: str, state: str, desc: str = ""):
     status_map = {
-        "waiting": ("WAITING", "status-waiting"),
-        "running": ("● RUNNING", "status-running"),
-        "done":    ("✓ DONE",   "status-done"),
+        "waiting": ("WAITING",    "status-waiting"),
+        "running": ("● RUNNING",  "status-running"),
+        "done":    ("✓ DONE",     "status-done"),
     }
-
     label, cls = status_map.get(state, ("", ""))
     card_cls = {"running": "active", "done": "done"}.get(state, "")
-
     st.markdown(f"""
     <div class="step-card {card_cls}">
         <div class="step-header">
@@ -381,16 +377,14 @@ st.markdown("""
         and critiquing — to deliver a polished research report on any topic.
     </p>
 </div>
-
 <div class="divider"></div>
 """, unsafe_allow_html=True)
 
 
-# ── Layout: input left, pipeline right ───────────────────────────────────────
+# ── Layout ────────────────────────────────────────────────────────────────────
 col_input, col_spacer, col_pipeline = st.columns([5, 0.5, 4])
 
 with col_input:
-
     st.markdown('<div class="input-card">', unsafe_allow_html=True)
 
     topic = st.text_input(
@@ -400,145 +394,161 @@ with col_input:
         label_visibility="visible",
     )
 
-    run_btn = st.button(
-        "⚡ Run Research Pipeline",
-        use_container_width=True
-    )
-
+    run_btn = st.button("⚡ Run Research Pipeline", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Example chips
     st.markdown("""
-    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.5rem;">
-        <span style="font-family:'DM Mono',monospace;font-size:0.68rem;color:#7f93ad;letter-spacing:0.1em;">
-            TRY →
-        </span>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.5rem;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:0.68rem;color:#7f93ad;letter-spacing:0.1em;">TRY →</span>
     """, unsafe_allow_html=True)
 
-    examples = [
+    for ex in [
         "Future of LLM in Tech Industry",
-        "All Lastest AI Agents in 2026",
+        "All Latest AI Agents in 2026",
         "Roadmap for AGI development in next 5 years",
-    ]
-
-    for ex in examples:
+    ]:
         st.markdown(f"""
-        <span style="
-            background:rgba(255,255,255,0.05);
-            border:1px solid rgba(255,255,255,0.08);
-            border-radius:8px;
-            padding:0.35rem 0.8rem;
-            font-size:0.75rem;
-            color:#d8e2f0;
-            font-family:'DM Sans',sans-serif;
-            cursor:default;
-        ">
-            {ex}
-        </span>
+        <span style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
+            border-radius:8px;padding:0.35rem 0.8rem;font-size:0.75rem;color:#d8e2f0;
+            font-family:'DM Sans',sans-serif;cursor:default;">{ex}</span>
         """, unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
+
 with col_pipeline:
+    st.markdown('<div class="section-heading">Pipeline</div>', unsafe_allow_html=True)
 
-    st.markdown(
-        '<div class="section-heading">Pipeline</div>',
-        unsafe_allow_html=True
-    )
+    slot_search = st.empty()
+    slot_reader = st.empty()
+    slot_writer = st.empty()
+    slot_critic = st.empty()
 
-    r = st.session_state.results
-    done = st.session_state.done
+    def render_pipeline(current_step: str | None = None):
+        """
+        current_step: one of "search","reader","writer","critic", or None.
+        Steps before current_step → done. current_step → running. Rest → waiting.
+        """
+        order  = ["search", "reader", "writer", "critic"]
+        labels = {
+            "search": ("01", "Search Agent",  "Gathers recent web information"),
+            "reader": ("02", "Reader Agent",  "Scrapes & extracts deep content"),
+            "writer": ("03", "Writer Chain",  "Drafts the full research report"),
+            "critic": ("04", "Critic Chain",  "Reviews & scores the report"),
+        }
+        slots  = {
+            "search": slot_search,
+            "reader": slot_reader,
+            "writer": slot_writer,
+            "critic": slot_critic,
+        }
 
-    def s(step):
-        if not r:
-            return "waiting"
-        steps = ["search", "reader", "writer", "critic"]
-        if step in r:
-            return "done"
-        if st.session_state.running:
-            for k in steps:
-                if k not in r:
-                    return "running" if k == step else "waiting"
-        return "waiting"
+        r = st.session_state.results
+        done_steps = set(r.keys())
 
-    step_card("01", "Search Agent",  s("search"), "Gathers recent web information")
-    step_card("02", "Reader Agent",  s("reader"), "Scrapes & extracts deep content")
-    step_card("03", "Writer Chain",  s("writer"), "Drafts the full research report")
-    step_card("04", "Critic Chain",  s("critic"), "Reviews & scores the report")
+        for step in order:
+            if step in done_steps:
+                state = "done"
+            elif step == current_step:
+                state = "running"
+            else:
+                state = "waiting"
+
+            num, title, desc = labels[step]
+            with slots[step]:
+                step_card(num, title, state, desc)
+
+    render_pipeline()
 
 
-# ── Run pipeline ──────────────────────────────────────────────────────────────
+# ── Trigger run ───────────────────────────────────────────────────────────────
 if run_btn:
     if not topic.strip():
         st.warning("Please enter a research topic first.")
     else:
-        st.session_state.results = {}
-        st.session_state.running = True
-        st.session_state.done = False
+        st.session_state.results  = {}
+        st.session_state.running  = True
+        st.session_state.done     = False
         st.rerun()
 
 
+# ── Pipeline execution ────────────────────────────────────────────────────────
 if st.session_state.running and not st.session_state.done:
 
-    results = {}
-    topic_val = st.session_state.topic_input
+    results    = {}
+    topic_val  = st.session_state.topic_input
 
-    # ── Step 1: Search ──
+    # ── Step 1: Search ──────────────────────────────────────────────────────
+    render_pipeline(current_step="search")
     with st.spinner("🔍 Search Agent is working…"):
         try:
             search_agent = build_search_agent()
             sr = search_agent.invoke({
-                "messages": [("user", f"Find recent, reliable and detailed information about: {topic_val}")]
+                "messages": [("user",
+                    f"Find recent, reliable and detailed information about: {topic_val}")]
             })
             results["search"] = sr["messages"][-1].content
         except Exception as e:
             results["search"] = f"Search agent error: {str(e)}"
-        st.session_state.results = dict(results)
 
-    # ── Step 2: Reader ──
+    st.session_state.results = dict(results)
+
+    # ── Step 2: Reader ──────────────────────────────────────────────────────
+    render_pipeline(current_step="reader")
     with st.spinner("📄 Reader Agent is scraping top resources…"):
         try:
+            # Filter URLs before sending to Reader so it never tries YouTube etc.
+            scrappable = extract_scrappable_urls(results["search"], limit=4)
+            urls_for_reader = "\n".join(scrappable) if scrappable else "(no scrappable URLs found)"
+
             reader_agent = build_reader_agent()
             rr = reader_agent.invoke({
-                "messages": [(
-                    "user",
-                    f"Based on the following search results about '{topic_val}', "
-                    f"pick the most relevant URL and scrape it for deeper content.\n\n"
-                    f"Search Results:\n{results['search'][:800]}"
+                "messages": [("user",
+                    f"Scrape and extract deep content from these URLs about '{topic_val}'.\n"
+                    f"Only use URLs from this list (skip any not listed here):\n{urls_for_reader}\n\n"
+                    f"Context from search:\n{results['search'][:1500]}"
                 )]
             })
             results["reader"] = rr["messages"][-1].content
         except Exception as e:
             results["reader"] = f"Reader agent error: {str(e)}"
-        st.session_state.results = dict(results)
 
-    # ── Step 3: Writer ──
+    st.session_state.results = dict(results)
+
+    # ── Step 3: Writer ──────────────────────────────────────────────────────
+    render_pipeline(current_step="writer")
     with st.spinner("✍️ Writer is drafting the report…"):
         try:
+            scrappable_urls = extract_scrappable_urls(results["search"], limit=10)
+            urls_block = "\n".join(
+                [f"{i+1}. {url}" for i, url in enumerate(scrappable_urls)]
+            )
+
             research_combined = (
                 f"SEARCH RESULTS:\n{results['search']}\n\n"
-                f"DETAILED SCRAPED CONTENT:\n{results['reader']}"
+                f"DETAILED SCRAPED CONTENT:\n{results['reader']}\n\n"
+                f"EXTRACTED URLS FOR SOURCES SECTION (use these, skip YouTube/social):\n{urls_block}"
             )
             results["writer"] = writer_chain.invoke({
-                "topic": topic_val,
-                "research": research_combined
+                "topic":    topic_val,
+                "research": research_combined,
             })
         except Exception as e:
             results["writer"] = f"Writer error: {str(e)}"
-        st.session_state.results = dict(results)
 
-    # ── Step 4: Critic ──
+    st.session_state.results = dict(results)
+
+    # ── Step 4: Critic ──────────────────────────────────────────────────────
+    render_pipeline(current_step="critic")
     with st.spinner("🧐 Critic is reviewing the report…"):
         try:
-            results["critic"] = critic_chain.invoke({
-                "report": results["writer"]
-            })
+            results["critic"] = critic_chain.invoke({"report": results["writer"]})
         except Exception as e:
             results["critic"] = f"Critic error: {str(e)}"
-        st.session_state.results = dict(results)
 
-    st.session_state.running = False
-    st.session_state.done = True
+    st.session_state.results  = dict(results)
+    st.session_state.running  = False
+    st.session_state.done     = True
     st.rerun()
 
 
@@ -546,41 +556,38 @@ if st.session_state.running and not st.session_state.done:
 r = st.session_state.results
 
 if r:
-
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     st.markdown('<div class="section-heading">Results</div>', unsafe_allow_html=True)
 
     if "search" in r:
         with st.expander("🔍 Search Results (raw)", expanded=False):
             st.markdown(
-                f'''
-                <div class="result-panel">
-                    <div class="result-panel-title">Search Agent Output</div>
-                    <div class="result-content">{r["search"]}</div>
-                </div>
-                ''',
+                f'<div class="result-panel">'
+                f'<div class="result-panel-title">Search Agent Output</div>'
+                f'</div>',
                 unsafe_allow_html=True
             )
+            # Use st.text for raw AI output — no HTML injection risk
+            st.text(r["search"])
 
     if "reader" in r:
         with st.expander("📄 Scraped Content (raw)", expanded=False):
             st.markdown(
-                f'''
-                <div class="result-panel">
-                    <div class="result-panel-title">Reader Agent Output</div>
-                    <div class="result-content">{r["reader"]}</div>
-                </div>
-                ''',
+                f'<div class="result-panel">'
+                f'<div class="result-panel-title">Reader Agent Output</div>'
+                f'</div>',
                 unsafe_allow_html=True
             )
+            st.text(r["reader"])
 
     if "writer" in r:
         st.markdown("""
         <div class="report-panel">
             <div class="panel-label orange">📝 Final Research Report</div>
+        </div>
         """, unsafe_allow_html=True)
+        # st.markdown renders the report's own markdown safely
         st.markdown(r["writer"])
-        st.markdown("</div>", unsafe_allow_html=True)
 
         st.download_button(
             label="⬇ Download Report (.md)",
@@ -593,9 +600,12 @@ if r:
         st.markdown("""
         <div class="feedback-panel">
             <div class="panel-label green">🧐 Critic Feedback</div>
+        </div>
         """, unsafe_allow_html=True)
         st.markdown(r["critic"])
-        st.markdown("</div>", unsafe_allow_html=True)
+
+    # Re-render pipeline as all-done after results load
+    render_pipeline()
 
 
 # ── Footer ────────────────────────────────────────────────────────────────────
